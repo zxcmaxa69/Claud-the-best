@@ -14,15 +14,6 @@ import org.lwjgl.glfw.GLFW;
 
 public class ExampleModClient implements ClientModInitializer {
 
-    @Override
-    public void onInitializeClient() {
-        KeyBinding editKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "Watermark tahrirlash",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_RIGHT_SHIFT,
-                "Claud-the-best"
-        ));
-
         HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
             int cx = ctx.getScaledWindowWidth() / 2 + (int) Watermark.offX;
             int cy = ctx.getScaledWindowHeight() / 2 + (int) Watermark.offY;
