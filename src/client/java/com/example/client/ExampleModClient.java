@@ -49,6 +49,7 @@ public class ExampleModClient implements ClientModInitializer {
         JumpCircle.init();
         Trails.init();
         Waypoints.init();
+        TargetHud.init();
         Config.load();
         ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> Config.save());
     }
