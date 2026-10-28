@@ -2,16 +2,21 @@ package com.example.client;
 
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
@@ -19,6 +24,9 @@ public class Waypoints {
     private record Point(double x, double y, double z, String dim) {}
 
     static final Module MODULE = new Module("Waypoint", true) {};
+
+    private static final int COLOR_FROM = 0x1E9BFF;
+    private static final int COLOR_TO = 0xA030FF;
 
     private static final Path FILE =
             FabricLoader.getInstance().getConfigDir().resolve("claud-waypoints.properties");
@@ -30,36 +38,58 @@ public class Waypoints {
         HudRenderCallback.EVENT.register((gui, tick) -> render(gui));
     }
 
-    // Chat buyruqlari: .wp add <nom>  .wp del <nom>  .wp list  .wp clear
+    // .wp add <nom>                (turgan joyingiz)
+    // .wp add <nom> <x> <y> <z>    (o'zingiz yozgan koordinata)
+    // .wp remove <nom>   .wp list   .wp clear
     static void handle(String[] p) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
 
         if (p.length < 2) {
-            Commands.say("Ishlatish: .wp add <nom> | .wp del <nom> | .wp list | .wp clear");
+            Commands.say("Ishlatish: .wp add <nom> [x y z] | .wp remove <nom> | .wp list | .wp clear");
             return;
         }
         String sub = p[1].toLowerCase();
 
         if (sub.equals("add")) {
             if (p.length < 3) {
-                Commands.say("Nom yozing: .wp add <nom>");
+                Commands.say("Nom yozing: .wp add <nom> [x y z]");
                 return;
             }
+            double x = mc.player.getX();
+            double y = mc.player.getY();
+            double z = mc.player.getZ();
+            int nameEnd = p.length;
+
+            if (p.length >= 6) {
+                try {
+                    double nx = Double.parseDouble(p[p.length - 3]);
+                    double ny = Double.parseDouble(p[p.length - 2]);
+                    double nz = Double.parseDouble(p[p.length - 1]);
+                    x = nx;
+                    y = ny;
+                    z = nz;
+                    nameEnd = p.length - 3;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+
+            String name = String.join(" ", Arrays.copyOfRange(p, 2, nameEnd));
             String dim = mc.level.dimension().location().toString();
-            POINTS.put(p[2], new Point(mc.player.getX(), mc.player.getY(), mc.player.getZ(), dim));
+            POINTS.put(name, new Point(x, y, z, dim));
             save();
-            Commands.say("Waypoint saqlandi: " + p[2]);
-        } else if (sub.equals("del")) {
+            Commands.say("Waypoint saqlandi: " + name + " (" + (int) x + " " + (int) y + " " + (int) z + ")");
+        } else if (sub.equals("remove") || sub.equals("del")) {
             if (p.length < 3) {
-                Commands.say("Nom yozing: .wp del <nom>");
+                Commands.say("Nom yozing: .wp remove <nom>");
                 return;
             }
-            if (POINTS.remove(p[2]) != null) {
+            String name = String.join(" ", Arrays.copyOfRange(p, 2, p.length));
+            if (POINTS.remove(name) != null) {
                 save();
-                Commands.say("O'chirildi: " + p[2]);
+                Commands.say("O'chirildi: " + name);
             } else {
-                Commands.say("Bunday waypoint yo'q: " + p[2]);
+                Commands.say("Bunday waypoint yo'q: " + name);
             }
         } else if (sub.equals("list")) {
             if (POINTS.isEmpty()) {
@@ -83,33 +113,76 @@ public class Waypoints {
         if (!MODULE.enabled || mc.player == null || mc.level == null) return;
 
         String dim = mc.level.dimension().location().toString();
-        var font = mc.font;
-        int y = 18;
+        Camera cam = mc.gameRenderer.getMainCamera();
+        Vec3 cp = cam.getPosition();
+        Vector3f look = cam.getLookVector();
+        Vector3f up = cam.getUpVector();
+        Vector3f left = cam.getLeftVector();
+
+        double tan = Math.tan(Math.toRadians(mc.options.fov().get()) / 2.0);
+        int w = gui.guiWidth();
+        int h = gui.guiHeight();
+        double aspect = (double) w / h;
+        Font font = mc.font;
 
         for (var e : POINTS.entrySet()) {
             Point pt = e.getValue();
             if (!pt.dim().equals(dim)) continue;
 
-            double dx = pt.x() - mc.player.getX();
-            double dz = pt.z() - mc.player.getZ();
-            double dist = Math.sqrt(dx * dx + dz * dz);
-            double target = Math.toDegrees(Math.atan2(-dx, dz));
-            double diff = Mth.wrapDegrees(target - mc.player.getYRot());
+            double rx = pt.x() - cp.x;
+            double ry = pt.y() + 1.0 - cp.y;
+            double rz = pt.z() - cp.z;
 
-            gui.drawString(font, e.getKey() + "  " + (int) dist + "m  " + direction(diff),
-                    4, y, 0xFFFFD955);
-            y += 11;
+            double depth = rx * look.x() + ry * look.y() + rz * look.z();
+            if (depth < 0.1) continue;
+
+            double lx = rx * left.x() + ry * left.y() + rz * left.z();
+            double uy = rx * up.x() + ry * up.y() + rz * up.z();
+
+            double sx = w / 2.0 - (lx / (depth * tan * aspect)) * (w / 2.0);
+            double sy = h / 2.0 - (uy / (depth * tan)) * (h / 2.0);
+            if (sx < -60 || sx > w + 60 || sy < -30 || sy > h + 30) continue;
+
+            double dist = Math.sqrt(rx * rx + ry * ry + rz * rz);
+            drawLabel(gui, font, e.getKey(), dist, (int) sx, (int) sy);
         }
     }
 
-    private static String direction(double diff) {
-        double a = Math.abs(diff);
-        boolean right = diff > 0;
-        if (a < 22.5) return "oldinda";
-        if (a < 67.5) return right ? "o'ng-old" : "chap-old";
-        if (a < 112.5) return right ? "o'ngda" : "chapda";
-        if (a < 157.5) return right ? "o'ng-orqa" : "chap-orqa";
-        return "orqada";
+    private static void drawLabel(GuiGraphics gui, Font font, String name, double dist, int sx, int sy) {
+        float scale = 1.4f;
+        int nameW = font.width(name);
+        String d = String.format(Locale.ROOT, "%.1fm", dist);
+        int dw = font.width(d);
+        int x0 = -(nameW / 2) - 4;
+
+        gui.pose().pushPose();
+        gui.pose().translate(sx, sy, 0);
+        gui.pose().scale(scale, scale, 1.0f);
+
+        gui.fill(x0, -13, x0 + nameW + 8, -1, 0xCC1A2040);
+        drawGradient(gui, font, name, -(nameW / 2), -11);
+
+        gui.fill(x0, -1, x0 + dw + 6, 10, 0xCC0F2A2A);
+        gui.drawString(font, d, x0 + 3, 1, 0xFFFFFFFF);
+
+        gui.pose().popPose();
+    }
+
+    private static void drawGradient(GuiGraphics gui, Font font, String text, int x, int y) {
+        int n = text.length();
+        for (int i = 0; i < n; i++) {
+            float t = n <= 1 ? 0f : (float) i / (n - 1);
+            int r = lerp((COLOR_FROM >> 16) & 0xFF, (COLOR_TO >> 16) & 0xFF, t);
+            int g = lerp((COLOR_FROM >> 8) & 0xFF, (COLOR_TO >> 8) & 0xFF, t);
+            int b = lerp(COLOR_FROM & 0xFF, COLOR_TO & 0xFF, t);
+            String ch = String.valueOf(text.charAt(i));
+            gui.drawString(font, ch, x, y, 0xFF000000 | (r << 16) | (g << 8) | b);
+            x += font.width(ch);
+        }
+    }
+
+    private static int lerp(int a, int b, float t) {
+        return Math.round(a + (b - a) * t);
     }
 
     private static void save() {
@@ -143,4 +216,4 @@ public class Waypoints {
             }
         }
     }
-                             }
+}
