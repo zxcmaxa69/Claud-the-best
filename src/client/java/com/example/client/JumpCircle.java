@@ -54,4 +54,4 @@ public class JumpCircle {
     static void init() {
         Modules.ALL.add(MODULE);
     }
-            }
+}
