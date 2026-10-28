@@ -39,7 +39,7 @@ public class ExampleModClient implements ClientModInitializer {
             }
         });
 
-        // Chat buyruqlari: .list  .t sprint
+        // Chat buyruqlari: .list  .t sprint  .wp add/remove/list/clear
         ClientSendMessageEvents.ALLOW_CHAT.register(msg -> {
             if (!msg.startsWith(".")) return true;
             Commands.handle(msg.substring(1).trim());
@@ -123,8 +123,7 @@ class Commands {
             for (Module m : Modules.ALL) {
                 say(m.name + ": " + (m.enabled ? "yoqilgan" : "o'chirilgan"));
             }
-            
-                } else if (cmd.equals("wp")) {
+        } else if (cmd.equals("wp")) {
             Waypoints.handle(p);
         } else {
             say("Buyruqlar: .t <modul>, .list, .wp");
@@ -135,7 +134,6 @@ class Commands {
 class Hud {
     static double offX = 0;
     static double offY = 0;
-    static final int RADIUS = 28;
 
     static int frames = 0;
     static int fps = 0;
@@ -156,8 +154,7 @@ class Hud {
         if (Modules.WATERMARK.enabled) {
             int cx = gui.guiWidth() / 2 + (int) offX;
             int cy = gui.guiHeight() / 2 + (int) offY;
-            drawCircle(gui, cx, cy);
-            gui.drawCenteredString(font, "Claud", cx, cy - 4, 0xFFFFFFFF);
+            WatermarkPill.draw(gui, cx, cy);
         }
 
         if (Modules.FPS.enabled) {
@@ -170,14 +167,6 @@ class Hud {
             int w = font.width(m.name);
             gui.drawString(font, m.name, gui.guiWidth() - w - 4, y, 0xFF55FFFF);
             y += 11;
-        }
-    }
-
-    static void drawCircle(GuiGraphics gui, int cx, int cy) {
-        int color = 0xCC202030;
-        for (int dy = -RADIUS; dy <= RADIUS; dy++) {
-            int half = (int) Math.round(Math.sqrt(RADIUS * RADIUS - dy * dy));
-            gui.fill(cx - half, cy + dy, cx + half, cy + dy + 1, color);
         }
     }
 }
@@ -193,14 +182,14 @@ class WatermarkEditScreen extends Screen {
     public void render(GuiGraphics gui, int mouseX, int mouseY, float delta) {
         super.render(gui, mouseX, mouseY, delta);
         gui.drawCenteredString(this.font,
-                "Aylanani sudrang. Yopish: ESC", this.width / 2, 10, 0xFFFFFFFF);
+                "Watermarkni sudrang. Yopish: ESC", this.width / 2, 10, 0xFFFFFFFF);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         double dx = mouseX - (this.width / 2.0 + Hud.offX);
         double dy = mouseY - (this.height / 2.0 + Hud.offY);
-        if (dx * dx + dy * dy <= Hud.RADIUS * Hud.RADIUS) {
+        if (WatermarkPill.hit(dx, dy)) {
             dragging = true;
             return true;
         }
@@ -227,4 +216,4 @@ class WatermarkEditScreen extends Screen {
     public void removed() {
         Config.save();
     }
-}
+                    }
