@@ -34,19 +34,20 @@ public class ExampleModClient implements ClientModInitializer {
                 if (m.enabled) m.onTick(mc);
             }
             while (editKey.consumeClick()) {
-                mc.setScreen(new ClickGui());
+                mc.setScreen(new WatermarkEditScreen());
             }
         });
 
         // Chat buyruqlari: .help  .list  .t sprint
         ClientSendMessageEvents.ALLOW_CHAT.register(msg -> {
-            if (!msg.startsWith ft(".")) return true;
+            if (!msg.startsWith(".")) return true;
             Commands.handle(msg.substring(1).trim());
             return false;
-            JumpCircle.init();
+        });
+        JumpCircle.init();
                 Config.load();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING
-                .register(mc-> Config.save());
+                .register(mc -> Config.save());
     }
 }
 
@@ -209,4 +210,4 @@ class WatermarkEditScreen extends Screen {
         dragging = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
-}
+        }
