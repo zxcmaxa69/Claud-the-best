@@ -34,7 +34,7 @@ public class ExampleModClient implements ClientModInitializer {
                 if (m.enabled) m.onTick(mc);
             }
             while (editKey.consumeClick()) {
-                mc.setScreen(new WatermarkEditScreen());
+                mc.setScreen(new ClickGui());
             }
         });
 
