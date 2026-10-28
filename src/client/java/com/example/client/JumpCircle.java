@@ -8,82 +8,50 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-@FieldDefaults(level = AccessLevel.PRIVATE)
-public class JumpCircle extends Module {
+public class JumpCircle {
+    // Zarracha turini o'zgartirish uchun shu qatorni almashtiring:
+    // ParticleTypes.END_ROD (oq), SOUL_FIRE_FLAME (ko'k), WITCH (binafsha),
+    // HAPPY_VILLAGER (yashil), FLAME (olov)
+    private static final ParticleOptions PARTICLE = ParticleTypes.END_ROD;
 
-    private final List<Circle> circles = new ArrayList<>();
-    final Identifier circleTexture = Identifier.of("textures/circle.png");
-    boolean wasOnGround = true;
+    private static final int POINTS = 28;
+    private static final int MAX_AGE = 9;
 
-    public JumpCircle() {
-        super("JumpCircle", "Jump Circle", ModuleCategory.RENDER);
-    }
+    private static final List<double[]> RINGS = new ArrayList<>();
+    private static boolean prevOnGround = true;
 
-    @EventHandler
-    public void onUpdate(TickEvent event) {
-        if (mc.player == null) return;
+    static final Module MODULE = new Module("JumpCircle", true) {
+        @Override
+        void onTick(Minecraft mc) {
+            if (mc.player == null || mc.level == null) return;
 
-        boolean isOnGround = mc.player.isOnGround();
+            boolean onGround = mc.player.onGround();
+            double vy = mc.player.getDeltaMovement().y;
 
-        if (wasOnGround && !isOnGround) {
-            Vec3d pos = new Vec3d(
-                    mc.player.getX(),
-                    Math.floor(mc.player.getY()) + 0.001,
-                    mc.player.getZ()
-            );
-            circles.add(new Circle(pos, new Counter()));
+            if (prevOnGround && !onGround && vy > 0) {
+                RINGS.add(new double[]{
+                        mc.player.getX(), mc.player.getY() + 0.1, mc.player.getZ(), 0
+                });
+            }
+            prevOnGround = onGround;
+
+            Iterator<double[]> it = RINGS.iterator();
+            while (it.hasNext()) {
+                double[] r = it.next();
+                double radius = 0.3 + r[3] * 0.25;
+                for (int i = 0; i < POINTS; i++) {
+                    double a = 2 * Math.PI * i / POINTS;
+                    mc.level.addParticle(PARTICLE,
+                            r[0] + Math.cos(a) * radius, r[1], r[2] + Math.sin(a) * radius,
+                            0, 0, 0);
+                }
+                r[3]++;
+                if (r[3] > MAX_AGE) it.remove();
+            }
         }
+    };
 
-        wasOnGround = isOnGround;
-
-        circles.removeIf(c -> c.timer.passedMs(3000));
+    static void init() {
+        Modules.ALL.add(MODULE);
     }
-
-    @EventHandler
-    public void onWorldRender(WorldRenderEvent e) {
-        renderCircles();
-    }
-
-    private void renderCircles() {
-        if (circles.isEmpty()) return;
-
-        for (Circle circle : circles) {
-            renderSingleCircle(circle);
-        }
-    }
-
-    private void renderSingleCircle(Circle circle) {
-        float lifeTime = (float) circle.timer.getPassedTimeMs();
-        float maxTime = 3000f;
-        float progress = lifeTime / maxTime;
-
-        if (progress >= 1f) return;
-
-        float scale = progress * 2f;
-        float alpha = 1f - (progress * progress);
-
-        int baseColor = ColorUtil.fade((int)(progress * 360f));
-        int color = ColorUtil.multAlpha(baseColor, alpha);
-
-        Camera camera = mc.getEntityRenderDispatcher().camera;
-        Vec3d cameraPos = camera.getPos();
-        Vec3d circlePos = circle.pos();
-
-        MatrixStack matrixStack = new MatrixStack();
-
-        matrixStack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(camera.getPitch()));
-        matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(camera.getYaw() + 180.0F));
-
-        matrixStack.translate(circlePos.x - cameraPos.x, circlePos.y - cameraPos.y, circlePos.z - cameraPos.z);
-
-        matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-camera.getYaw()));
-        matrixStack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90f));
-
-        MatrixStack.Entry entry = matrixStack.peek();
-        Vector4i colors = new Vector4i(color, color, color, color);
-
-        Render3DUtil.drawTexture(entry, circleTexture, -scale/2, -scale/2, scale, scale, colors, true);
-    }
-
-    public record Circle(Vec3d pos, Counter timer) {}
-}
+            }
