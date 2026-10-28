@@ -44,6 +44,13 @@ public class ExampleModClient implements ClientModInitializer {
             Commands.handle(msg.substring(1).trim());
             return false;
         });
+                });
+        JumpCircle.init();
+        Config.load();
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING
+                .register(mc -> Config.save());
+    }
+}
                 Config.load();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING
                 .register(mc -> Config.save());
