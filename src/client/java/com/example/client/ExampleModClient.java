@@ -2,6 +2,7 @@ package com.example.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
@@ -34,20 +35,22 @@ public class ExampleModClient implements ClientModInitializer {
                 if (m.enabled) m.onTick(mc);
             }
             while (editKey.consumeClick()) {
-                mc.setScreen(new WatermarkEditScreen());
+                mc.setScreen(new ClickGui());
             }
         });
 
-        // Chat buyruqlari: .help  .list  .t sprint
+        // Chat buyruqlari: .list  .t sprint
         ClientSendMessageEvents.ALLOW_CHAT.register(msg -> {
             if (!msg.startsWith(".")) return true;
             Commands.handle(msg.substring(1).trim());
             return false;
         });
+
         JumpCircle.init();
-                Config.load();
-        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING
-                .register(mc -> Config.save());
+         Trails.init();
+        Waypoints.init();
+        Config.load();
+        ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> Config.save());
     }
 }
 
@@ -104,17 +107,27 @@ class Commands {
         String cmd = p[0].toLowerCase();
 
         if (cmd.equals("t") || cmd.equals("toggle")) {
-            if (p.length < 2) { say("Ishlatish: .t <modul>"); return; }
+            if (p.length < 2) {
+                say("Ishlatish: .t <modul>");
+                return;
+            }
             Module m = Modules.find(p[1]);
-            if (m == null) { say("Bunday modul yo'q: " + p[1]); return; }
+            if (m == null) {
+                say("Bunday modul yo'q: " + p[1]);
+                return;
+            }
             m.enabled = !m.enabled;
             say(m.name + (m.enabled ? " yoqildi" : " o'chirildi"));
+            Config.save();
         } else if (cmd.equals("list")) {
             for (Module m : Modules.ALL) {
                 say(m.name + ": " + (m.enabled ? "yoqilgan" : "o'chirilgan"));
             }
+            
+                } else if (cmd.equals("wp")) {
+            Waypoints.handle(p);
         } else {
-            say("Buyruqlar: .t <modul>, .list, .help");
+            say("Buyruqlar: .t <modul>, .list, .wp");
         }
     }
 }
@@ -151,7 +164,6 @@ class Hud {
             gui.drawString(font, "FPS: " + fps, 4, 4, 0xFFFFFFFF);
         }
 
-        // Yoqilgan modullar ro'yxati (o'ng yuqori burchak)
         int y = 4;
         for (Module m : Modules.ALL) {
             if (!m.enabled || m == Modules.WATERMARK || m == Modules.FPS) continue;
@@ -210,4 +222,9 @@ class WatermarkEditScreen extends Screen {
         dragging = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
-        }
+
+    @Override
+    public void removed() {
+        Config.save();
+    }
+}
