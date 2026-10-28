@@ -40,20 +40,13 @@ public class ExampleModClient implements ClientModInitializer {
 
         // Chat buyruqlari: .help  .list  .t sprint
         ClientSendMessageEvents.ALLOW_CHAT.register(msg -> {
-            if (!msg.startsWith(".")) return true;
+            if (!msg.startsWith ft(".")) return true;
             Commands.handle(msg.substring(1).trim());
             return false;
-        });
-                });
-        JumpCircle.init();
-        Config.load();
-        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING
-                .register(mc -> Config.save());
-    }
-}
+            JumpCircle.init();
                 Config.load();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING
-                .register(mc -> Config.save());
+                .register(mc-> Config.save());
     }
 }
 
